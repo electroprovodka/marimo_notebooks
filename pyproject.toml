@@ -1,0 +1,13 @@
+[project]
+name = "marimo-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10.15"
+dependencies = [
+    "marimo[sql]>=0.18.4",
+    "matplotlib>=3.10.8",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "plotly>=6.5.0",
+]
