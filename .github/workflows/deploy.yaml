@@ -25,7 +25,7 @@ jobs:
               run: uv sync --locked --all-extras --dev
             - name: 📄 Export notebook
               run: |
-                  uv run marimo export html-wasm woerden_trains_2024.py -o /tmp/notebooks/woerden_trains_2024.html --sandbox --mode edit
+                  uv run marimo export html-wasm "$(pwd)/woerden_trains_2024.py" -o /tmp/notebooks/woerden_trains_2024.html --sandbox --mode edit
 
             - name: 📦 Upload Pages Artifact
               uses: actions/upload-pages-artifact@v3
