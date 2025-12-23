@@ -17,71 +17,96 @@ def _():
 
 
 @app.cell
+def _():
+    import duckdb
+
+    # Create a DuckDB connection
+    duckdb_conn = duckdb.connect("services.duckdb")
+    return (duckdb_conn,)
+
+
+@app.cell
 def _(mo):
+    path_to_data =  mo.notebook_location() / "public" / "services-2024.parquet"
+    return (path_to_data,)
+
+
+@app.cell
+def _(duckdb_conn, mo, null, path_to_data):
     services = mo.sql(
         f"""
-        SELECT * FROM 'https://blobs.duckdb.org/nl-railway/services-2024.csv.gz'
-        """
+        SELECT
+            *
+        FROM
+            '{path_to_data}'
+        """,
+        engine=duckdb_conn
     )
     return (services,)
 
 
 @app.cell
-def _(mo, services):
+def _(duckdb_conn, mo, services):
     woerden_services = mo.sql(
         f"""
         SELECT * FROM services WHERE "Stop:Station code" = 'WD';
-        """
+        """,
+        engine=duckdb_conn
     )
     return (woerden_services,)
 
 
 @app.cell
-def _(mo, services, woerden_services):
+def _(duckdb_conn, mo, services, woerden_services):
     next_stations = mo.sql(
         f"""
         SELECT services."Service:RDT-ID", min(services."Stop:Arrival time") as next_station_arr, argmin(services."Stop:Station name", services."Stop:Arrival time") as next_station from services JOIN woerden_services ON services."Service:RDT-ID" = woerden_services."Service:RDT-ID" and services."Stop:Arrival time" > woerden_services."Stop:Departure time" GROUP BY ALL ORDER BY next_station_arr;
-        """
+        """,
+        engine=duckdb_conn
     )
     return (next_stations,)
 
 
 @app.cell
-def _(mo, services, woerden_services):
+def _(duckdb_conn, mo, services, woerden_services):
     prev_stations = mo.sql(
         f"""
         SELECT services."Service:RDT-ID", max(services."Stop:Departure time") as prev_station_dep, ARGMAX(services."Stop:Station name", services."Stop:Departure time") as prev_station from services JOIN woerden_services ON services."Service:RDT-ID" = woerden_services."Service:RDT-ID" and services."Stop:Departure time" < woerden_services."Stop:Arrival time" GROUP BY ALL ORDER BY prev_station_dep;
-        """
+        """,
+        engine=duckdb_conn
     )
     return (prev_stations,)
 
 
 @app.cell
-def _(mo, next_stations):
+def _(duckdb_conn, mo, next_stations):
     next_counts = mo.sql(
         f"""
         SELECT next_station, count(*) as cnt FROM next_stations GROUP BY ALL ORDER BY cnt desc
-        """
+        """,
+        engine=duckdb_conn
     )
     return (next_counts,)
 
 
 @app.cell
-def _(mo, prev_stations):
+def _(duckdb_conn, mo, prev_stations):
     prev_counts = mo.sql(
         f"""
         SELECT prev_station, count(*) as cnt FROM prev_stations GROUP BY ALL ORDER BY cnt desc
-        """
+        """,
+        engine=duckdb_conn
     )
     return (prev_counts,)
 
 
 @app.cell
-def _(mo, prev_counts):
+def _(duckdb_conn, mo, prev_counts):
     _df = mo.sql(
         f"""
         SELECT SUM(cnt) FROM prev_counts
-        """
+        """,
+        engine=duckdb_conn
     )
     return
 
@@ -94,11 +119,12 @@ def _(mo, prev_counts):
 
 
 @app.cell
-def _(mo, prev_stations, selected_station, services):
+def _(duckdb_conn, mo, prev_stations, selected_station, services):
     _df = mo.sql(
         f"""
         SELECT * FROM services JOIN (SELECT "Service:RDT-ID" as ride_id, prev_station FROM prev_stations WHERE prev_station = '{selected_station.value}') as prev_rides ON services."Service:RDT-ID" = prev_rides.ride_id AND services."Stop:Station name" = prev_rides.prev_station ORDER BY "Stop:Departure Time"
-        """
+        """,
+        engine=duckdb_conn
     )
     return
 
@@ -111,31 +137,34 @@ def _(mo, next_counts):
 
 
 @app.cell
-def _(mo, next_selected_station, next_stations, services):
+def _(duckdb_conn, mo, next_selected_station, next_stations, services):
     _df = mo.sql(
         f"""
         SELECT * FROM services JOIN (SELECT "Service:RDT-ID" as ride_id, next_station FROM next_stations WHERE next_station = '{next_selected_station.value}') as next_rides ON services."Service:RDT-ID" = next_rides.ride_id AND services."Stop:Station name" = next_rides.next_station ORDER BY "Stop:Departure Time"
-        """
+        """,
+        engine=duckdb_conn
     )
     return
 
 
 @app.cell
-def _(mo, next_stations, prev_stations):
+def _(duckdb_conn, mo, next_stations, prev_stations):
     adj_stations = mo.sql(
         f"""
         SELECT * FROM prev_stations full join next_stations ON prev_stations."Service:RDT-ID" = next_stations."Service:RDT-ID"
-        """
+        """,
+        engine=duckdb_conn
     )
     return (adj_stations,)
 
 
 @app.cell
-def _(adj_stations, mo):
+def _(adj_stations, duckdb_conn, mo):
     adj_stations_counts = mo.sql(
         f"""
         SELECT prev_station, next_station, count(*) as cnt from adj_stations GROUP BY ALL order by cnt desc
-        """
+        """,
+        engine=duckdb_conn
     )
     return (adj_stations_counts,)
 
